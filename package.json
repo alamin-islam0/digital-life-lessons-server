@@ -1,0 +1,33 @@
+{
+  "name": "digital-life-lessons-server",
+  "version": "1.0.0",
+  "description": "Backend server for Digital Life Lessons platform (Express + MongoDB + Stripe + Firebase Admin).",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "express",
+    "mongodb",
+    "stripe",
+    "firebase",
+    "digital-life-lessons"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "firebase-admin": "^12.7.0",
+    "helmet": "^8.1.0",
+    "mongoose": "^8.20.2",
+    "morgan": "^1.10.1",
+    "stripe": "^16.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}
