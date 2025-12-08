@@ -67,6 +67,9 @@ digital-life-lessons-server/
 
 ### **Payment**
 - `POST /api/payment/create-checkout-session` - Create Stripe checkout
+- `POST /api/payment/verify-session` - Verify payment session status
+- `GET /api/payment/history` - Get user's payment history
+- `GET /api/payment/status` - Check premium status based on payments
 - `POST /api/payment/webhook` - Stripe webhook handler
 
 ## 🔧 Environment Variables
@@ -124,3 +127,4 @@ All models use Mongoose schemas with timestamps and proper relationships:
 - **Favorite**: User-Lesson relationship
 - **Comment**: User comments on lessons
 - **LessonReport**: User reports for inappropriate content
+- **Payment**: Payment transaction records (Stripe session, amount, status)

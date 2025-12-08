@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const Stripe = require('stripe');
 const { verifyFirebaseToken, requireAuth } = require('../middleware/auth');
-const User = require('../models/User');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
@@ -51,52 +50,152 @@ router.post('/create-checkout-session', verifyFirebaseToken, requireAuth, async 
   }
 });
 
-// Webhook handler
-router.post('/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-
-  let event;
+// Verify session after payment
+router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-  } catch (err) {
-    console.error('❌ Webhook signature verification failed:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
-  }
+    const { sessionId } = req.body;
 
-  // Handle the checkout.session.completed event
-  if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
-    const firebaseUid = session.metadata?.firebaseUid;
-    const email = session.customer_details?.email;
+    if (!sessionId) {
+      return res.status(400).json({ message: 'Session ID is required' });
+    }
 
-    try {
-      const user = await User.findOne({ firebaseUid });
-      if (user) {
+    // Check if payment already exists
+    const Payment = require('../models/Payment');
+    const existingPayment = await Payment.findOne({ stripeSessionId: sessionId });
+
+    if (existingPayment) {
+      // Payment already recorded
+      return res.json({
+        success: true,
+        isPremium: true,
+        message: 'Payment already verified',
+        payment: {
+          amount: existingPayment.amount,
+          currency: existingPayment.currency,
+          status: existingPayment.status,
+          paymentDate: existingPayment.paymentDate,
+        },
+      });
+    }
+
+    // Retrieve the session from Stripe
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+
+    if (!session) {
+      return res.status(404).json({ message: 'Session not found' });
+    }
+
+    // Check if payment was successful
+    if (session.payment_status === 'paid') {
+      // Update user premium status if not already updated
+      const User = require('../models/User');
+      const user = await User.findOne({ 
+        firebaseUid: req.dbUser.firebaseUid 
+      });
+
+      if (user && !user.isPremium) {
         user.isPremium = true;
         await user.save();
-        console.log(`✅ Premium activated for user: ${user.email}`);
-      } else {
-        console.warn('⚠️ Webhook: user not found for firebaseUid', firebaseUid);
-        if (firebaseUid && email) {
-          await User.create({
-            firebaseUid,
-            email,
-            isPremium: true,
-            name: session.metadata?.name || 'Premium User',
-          });
-        }
       }
-    } catch (err) {
-      console.error('❌ Error updating user premium status from webhook:', err);
-      return res.status(500).json({ message: 'Server error in webhook' });
-    }
-  }
 
-  res.json({ received: true });
+      // Save payment record
+      const payment = await Payment.create({
+        user: req.dbUser._id,
+        firebaseUid: req.dbUser.firebaseUid,
+        email: req.dbUser.email,
+        stripeSessionId: session.id,
+        stripePaymentIntentId: session.payment_intent,
+        amount: session.amount_total,
+        currency: session.currency,
+        status: 'completed',
+        paymentMethod: session.payment_method_types?.[0] || 'card',
+        customerName: session.customer_details?.name || req.dbUser.name,
+        paymentDate: new Date(),
+        metadata: {
+          sessionMetadata: session.metadata,
+          customerDetails: session.customer_details,
+        },
+      });
+
+      return res.json({
+        success: true,
+        isPremium: true,
+        message: 'Payment verified successfully',
+        payment: {
+          amount: payment.amount,
+          currency: payment.currency,
+          status: payment.status,
+          paymentDate: payment.paymentDate,
+        },
+      });
+    } else {
+      return res.json({
+        success: false,
+        isPremium: req.dbUser.isPremium,
+        message: 'Payment not completed',
+        paymentStatus: session.payment_status,
+      });
+    }
+  } catch (err) {
+    console.error('❌ POST /api/payment/verify-session error:', err);
+    res.status(500).json({ message: 'Failed to verify session' });
+  }
+});
+
+// Get user's payment history
+router.get('/history', verifyFirebaseToken, requireAuth, async (req, res) => {
+  try {
+    const Payment = require('../models/Payment');
+    const payments = await Payment.find({ 
+      user: req.dbUser._id 
+    })
+    .sort({ createdAt: -1 })
+    .select('-metadata'); // Exclude metadata for cleaner response
+
+    res.json(payments);
+  } catch (err) {
+    console.error('❌ GET /api/payment/history error:', err);
+    res.status(500).json({ message: 'Failed to fetch payment history' });
+  }
+});
+
+// Check premium status based on payments
+router.get('/status', verifyFirebaseToken, requireAuth, async (req, res) => {
+  try {
+    const Payment = require('../models/Payment');
+    const User = require('../models/User');
+    
+    // Get user from database
+    const user = await User.findOne({ firebaseUid: req.dbUser.firebaseUid });
+    
+    // Check if user has any completed payments
+    const completedPayments = await Payment.countDocuments({
+      user: req.dbUser._id,
+      status: 'completed',
+    });
+
+    // Get latest payment
+    const latestPayment = await Payment.findOne({
+      user: req.dbUser._id,
+      status: 'completed',
+    }).sort({ createdAt: -1 });
+
+    const isPremium = user?.isPremium || completedPayments > 0;
+
+    res.json({
+      isPremium,
+      totalPayments: completedPayments,
+      latestPayment: latestPayment ? {
+        amount: latestPayment.amount,
+        currency: latestPayment.currency,
+        paymentDate: latestPayment.paymentDate,
+      } : null,
+    });
+  } catch (err) {
+    console.error('❌ GET /api/payment/status error:', err);
+    res.status(500).json({ message: 'Failed to fetch payment status' });
+  }
 });
 
 module.exports = router;
+
