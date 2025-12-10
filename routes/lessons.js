@@ -224,6 +224,36 @@ router.post('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (req
   }
 });
 
+// Delete favorite (explicit removal)
+router.delete('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (req, res) => {
+  try {
+    const lessonId = req.params.lessonId;
+    const userId = req.dbUser._id;
+
+    const existing = await Favorite.findOne({
+      user: userId,
+      lesson: lessonId,
+    });
+
+    if (existing) {
+      await Favorite.deleteOne({ _id: existing._id });
+      await Lesson.findByIdAndUpdate(lessonId, {
+        $inc: { favoritesCount: -1 },
+      });
+      await User.findByIdAndUpdate(userId, {
+        $inc: { totalFavorites: -1 },
+      });
+      
+      return res.json({ message: 'Favorite removed', favorited: false });
+    } else {
+      return res.status(404).json({ message: 'Favorite not found' });
+    }
+  } catch (err) {
+    console.error('❌ DELETE /api/lessons/favorites/:lessonId error:', err);
+    res.status(500).json({ message: 'Failed to remove favorite' });
+  }
+});
+
 // Lesson details
 router.get('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
@@ -337,34 +367,58 @@ router.delete('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
 // Like / Unlike lesson
 router.patch('/:id/like', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
-    const lesson = await Lesson.findById(req.params.id);
+    const { id } = req.params;
+    const userId = req.dbUser._id;
+    const lesson = await Lesson.findById(id);
+    
     if (!lesson) {
       return res.status(404).json({ message: 'Lesson not found' });
     }
 
-    const userId = req.dbUser._id;
-    const alreadyLiked = lesson.likes.some(
-      (id) => id.toString() === userId.toString()
-    );
+    const isLiked = lesson.likes.some(id => id.toString() === userId.toString());
 
-    if (alreadyLiked) {
-      lesson.likes = lesson.likes.filter(
-        (id) => id.toString() !== userId.toString()
-      );
-      lesson.likesCount = Math.max(0, lesson.likesCount - 1);
+    if (isLiked) {
+      // User is UN-LIKING the lesson
+      // 1. Remove user from lesson likes
+      await Lesson.findByIdAndUpdate(id, { 
+        $pull: { likes: userId },
+        $inc: { likesCount: -1 }
+      });
+      
+      // 2. Decrement totalLikes for the CURRENT USER (liker)
+      await User.findByIdAndUpdate(userId, { 
+        $inc: { totalLikes: -1 } 
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'Unliked', 
+        liked: false, 
+        likesCount: Math.max(0, lesson.likesCount - 1) 
+      });
     } else {
-      lesson.likes.push(userId);
-      lesson.likesCount += 1;
+      // User is LIKING the lesson
+      // 1. Add user to lesson likes
+      await Lesson.findByIdAndUpdate(id, { 
+        $addToSet: { likes: userId },
+        $inc: { likesCount: 1 }
+      });
+      
+      // 2. Increment totalLikes for the CURRENT USER (liker)
+      await User.findByIdAndUpdate(userId, { 
+        $inc: { totalLikes: 1 } 
+      });
+      
+      res.json({ 
+        success: true, 
+        message: 'Liked', 
+        liked: true, 
+        likesCount: lesson.likesCount + 1 
+      });
     }
-
-    await lesson.save();
-    res.json({
-      likesCount: lesson.likesCount,
-      liked: !alreadyLiked,
-    });
   } catch (err) {
     console.error('❌ PATCH /api/lessons/:id/like error:', err);
-    res.status(500).json({ message: 'Failed to toggle like' });
+    res.status(500).json({ message: 'Failed to toggle like', error: err.message });
   }
 });
 
