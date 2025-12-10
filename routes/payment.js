@@ -59,86 +59,134 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
       return res.status(400).json({ message: 'Session ID is required' });
     }
 
-    // Check if payment already exists
     const Payment = require('../models/Payment');
-    const existingPayment = await Payment.findOne({ stripeSessionId: sessionId });
+    const User = require('../models/User');
+
+    // 1. Retrieve the session from Stripe
+    let session;
+    try {
+      session = await stripe.checkout.sessions.retrieve(sessionId);
+    } catch (stripeErr) {
+      console.error('❌ Stripe retrieve error:', stripeErr);
+      return res.status(400).json({ message: 'Invalid Session ID', error: stripeErr.message });
+    }
+
+    if (!session) {
+      return res.status(400).json({ message: 'Session not found' });
+    }
+
+    // 2. Security Check: payment_status
+    if (session.payment_status !== 'paid') {
+      return res.status(400).json({ 
+        message: 'Payment not completed', 
+        status: session.payment_status 
+      });
+    }
+
+    // 3. Duplicate Handling: Check by payment_intent (transactionId)
+    // Most reliable way to detect if webhook already processed it
+    const existingPayment = await Payment.findOne({
+      $or: [
+        { stripeSessionId: session.id },
+        { stripePaymentIntentId: session.payment_intent }
+      ]
+    });
 
     if (existingPayment) {
-      // Payment already recorded
+      console.log('ℹ️ Payment already recorded:', existingPayment.stripeSessionId);
       return res.json({
         success: true,
-        isPremium: true,
         message: 'Payment already verified',
         payment: {
           amount: existingPayment.amount,
           currency: existingPayment.currency,
           status: existingPayment.status,
           paymentDate: existingPayment.paymentDate,
+          transactionId: existingPayment.stripePaymentIntentId,
         },
       });
     }
 
-    // Retrieve the session from Stripe
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
-
-    if (!session) {
-      return res.status(404).json({ message: 'Session not found' });
+    // 4. User Update: Find by session email
+    const customerEmail = session.customer_details?.email || session.customer_email;
+    let userToUpdate = await User.findOne({ email: customerEmail });
+    
+    // Fallback to logged-in user if email doesn't match or not found
+    if (!userToUpdate) {
+        console.warn(`⚠️ User with email ${customerEmail} not found, using logged-in user.`);
+        userToUpdate = await User.findOne({ firebaseUid: req.dbUser.firebaseUid });
     }
 
-    // Check if payment was successful
-    if (session.payment_status === 'paid') {
-      // Update user premium status if not already updated
-      const User = require('../models/User');
-      const user = await User.findOne({ 
-        firebaseUid: req.dbUser.firebaseUid 
-      });
-
-      if (user && !user.isPremium) {
-        user.isPremium = true;
-        await user.save();
-      }
-
-      // Save payment record
-      const payment = await Payment.create({
-        user: req.dbUser._id,
-        firebaseUid: req.dbUser.firebaseUid,
-        email: req.dbUser.email,
-        stripeSessionId: session.id,
-        stripePaymentIntentId: session.payment_intent,
-        amount: session.amount_total,
-        currency: session.currency,
-        status: 'completed',
-        paymentMethod: session.payment_method_types?.[0] || 'card',
-        customerName: session.customer_details?.name || req.dbUser.name,
-        paymentDate: new Date(),
-        metadata: {
-          sessionMetadata: session.metadata,
-          customerDetails: session.customer_details,
-        },
-      });
-
-      return res.json({
-        success: true,
-        isPremium: true,
-        message: 'Payment verified successfully',
-        payment: {
-          amount: payment.amount,
-          currency: payment.currency,
-          status: payment.status,
-          paymentDate: payment.paymentDate,
-        },
-      });
+    if (userToUpdate) {
+        userToUpdate.isPremium = true;
+        await userToUpdate.save();
     } else {
-      return res.json({
-        success: false,
-        isPremium: req.dbUser.isPremium,
-        message: 'Payment not completed',
-        paymentStatus: session.payment_status,
-      });
+        return res.status(404).json({ message: 'User not found to update' });
     }
+
+    // 5. Payment Record: Save transaction details
+    const newPayment = await Payment.create({
+      user: userToUpdate._id,
+      firebaseUid: userToUpdate.firebaseUid,
+      email: userToUpdate.email,
+      stripeSessionId: session.id,
+      stripePaymentIntentId: session.payment_intent,
+      amount: session.amount_total,
+      currency: session.currency,
+      status: 'completed',
+      paymentMethod: session.payment_method_types?.[0] || 'card',
+      customerName: session.customer_details?.name || userToUpdate.name,
+      paymentDate: new Date(),
+      metadata: {
+        sessionMetadata: session.metadata,
+        customerDetails: session.customer_details,
+      },
+    });
+
+    // 6. Response
+    res.json({
+      success: true,
+      message: 'Payment verified successfully',
+      payment: {
+        amount: newPayment.amount,
+        currency: newPayment.currency,
+        status: newPayment.status,
+        paymentDate: newPayment.paymentDate,
+        transactionId: newPayment.stripePaymentIntentId,
+      },
+    });
+
   } catch (err) {
+    // Handle race condition: If duplicate key error (11000)
+    if (err.code === 11000) {
+      console.warn('⚠️ Race condition detected: Payment inserted by another process.');
+      
+      try {
+        const Payment = require('../models/Payment');
+        // Retrieve the existing payment that caused the conflict
+        const existingPayment = await Payment.findOne({ stripeSessionId: req.body.sessionId });
+        
+        if (existingPayment) {
+           return res.json({
+            success: true,
+            isPremium: true,
+            message: 'Payment verified (duplicate handled)',
+            payment: {
+              amount: existingPayment.amount,
+              currency: existingPayment.currency,
+              status: existingPayment.status,
+              paymentDate: existingPayment.paymentDate,
+              transactionId: existingPayment.stripePaymentIntentId,
+            },
+          });
+        }
+      } catch (findErr) {
+        console.error('❌ Error recovering from duplicate:', findErr);
+      }
+    }
+
     console.error('❌ POST /api/payment/verify-session error:', err);
-    res.status(500).json({ message: 'Failed to verify session' });
+    res.status(500).json({ message: 'Failed to verify session', error: err.message });
   }
 });
 
