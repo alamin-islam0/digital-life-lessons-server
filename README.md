@@ -40,15 +40,18 @@ digital-life-lessons-server/
 - `GET /api/lessons/featured` - Get featured lessons
 - `GET /api/lessons/author/:userId` - Get lessons by author
 - `GET /api/lessons/my` - Get current user's lessons
+- `GET /api/lessons/favorites` - Get current user's favorite lessons
 - `GET /api/lessons/:id` - Get lesson details
 - `PATCH /api/lessons/:id` - Update lesson
 - `DELETE /api/lessons/:id` - Delete lesson
+- `POST /api/lessons/favorites/:lessonId` - Toggle favorite (Add/Remove)
+- `DELETE /api/lessons/favorites/:lessonId` - Remove favorite
 - `PATCH /api/lessons/:id/like` - Like/unlike lesson
 - `POST /api/lessons/:id/report` - Report lesson
 - `GET /api/lessons/:id/comments` - Get lesson comments
 - `POST /api/lessons/:id/comments` - Add comment
 
-### **Favorites**
+### **Favorites (Legacy)**
 - `POST /api/favorites/:lessonId` - Toggle favorite
 - `GET /api/favorites/my` - Get user's favorites
 
@@ -56,7 +59,7 @@ digital-life-lessons-server/
 - `GET /api/dashboard/overview` - Get dashboard stats
 
 ### **Admin**
-- `GET /api/admin/stats` - Get admin statistics
+- `GET /api/admin/stats` - Get admin statistics (Total Users, Total Lessons, Reported Lessons)
 - `GET /api/admin/users` - Get all users
 - `PATCH /api/admin/users/:id/role` - Update user role
 - `GET /api/admin/lessons` - Get all lessons (with filters)
@@ -122,7 +125,7 @@ nodemon index.js
 ## 📊 Models
 
 All models use Mongoose schemas with timestamps and proper relationships:
-- **User**: Firebase UID, email, role, premium status
+- **User**: Firebase UID, email, role, premium status, totalLikes
 - **Lesson**: Title, description, category, emotional tone, visibility
 - **Favorite**: User-Lesson relationship
 - **Comment**: User comments on lessons
