@@ -10,23 +10,24 @@ const Comment = require('../models/Comment');
 // Admin stats
 router.get('/stats', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
-    const [totalUsers, totalPublicLessons, totalReports, todayLessons] =
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const [totalUsers, totalLessons, totalReports, todayLessons] =
       await Promise.all([
         User.countDocuments(),
-        Lesson.countDocuments({ visibility: 'public' }),
+        Lesson.countDocuments(), // Count ALL lessons (not just public)
         LessonReport.countDocuments(),
         Lesson.countDocuments({
-          createdAt: {
-            $gte: new Date(new Date().setHours(0, 0, 0, 0)),
-          },
+          createdAt: { $gte: today },
         }),
       ]);
 
     res.json({
       totalUsers,
-      totalPublicLessons,
-      totalReports,
+      totalLessons, // Now includes all lessons
       todayLessons,
+      reportedLessons: totalReports, // Mapping to the requested key
     });
   } catch (err) {
     console.error('❌ GET /api/admin/stats error:', err);
