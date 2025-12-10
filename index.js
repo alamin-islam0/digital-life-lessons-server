@@ -169,6 +169,9 @@ app.get('/', (req, res) => {
   });
 });
 
+// Favicon
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // 404 handler
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
