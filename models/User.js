@@ -11,6 +11,7 @@ const userSchema = new Schema(
     role: { type: String, enum: ['user', 'admin'], default: 'user' },
     totalLessons: { type: Number, default: 0 },
     totalFavorites: { type: Number, default: 0 },
+    totalLikes: { type: Number, default: 0 },
   },
   { timestamps: true }
 );
