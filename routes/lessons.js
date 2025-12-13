@@ -133,6 +133,12 @@ router.get('/featured', async (req, res) => {
 router.get('/author/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // Validate userId
+    if (!userId || userId === 'undefined' || userId === 'null') {
+      return res.status(400).json({ message: 'Invalid User ID provided' });
+    }
+
     const lessons = await Lesson.find({
       createdBy: userId,
       visibility: 'public',
@@ -140,6 +146,10 @@ router.get('/author/:userId', async (req, res) => {
 
     res.json(lessons);
   } catch (err) {
+    // Handle invalid ObjectId cast error
+    if (err.name === 'CastError') {
+      return res.status(400).json({ message: 'Invalid User ID format' });
+    }
     console.error('❌ GET /api/lessons/author/:userId error:', err);
     res.status(500).json({ message: 'Failed to fetch author lessons' });
   }
@@ -257,14 +267,35 @@ router.delete('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (r
 // Lesson details
 router.get('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
-    const lesson = await Lesson.findById(req.params.id);
+    const lesson = await Lesson.findById(req.params.id)
+      .populate('createdBy', 'name email photoURL role')
+      .lean();
+
     if (!lesson) {
       return res.status(404).json({ message: 'Lesson not found' });
     }
 
+    // Prepare creator object (map createdBy to creator to match frontend expectation)
+    // and ensure we handle the case where createdBy might be null (deleted user)
+    if (lesson.createdBy) {
+      const totalLessons = await Lesson.countDocuments({ createdBy: lesson.createdBy._id });
+      lesson.creator = {
+        ...lesson.createdBy,
+        totalLessons
+      };
+      // Keep createdBy consistent or just rely on creator. 
+      // The user asked to "populate the creator field". 
+      // Since schema is createdBy, we keep createdBy populated as well or lets just overwrite consistent with the request "replaces the simple User ID".
+      // But purely replacing might break other things if they expect 'createdBy'. 
+      // We will provide 'creator' alias as per request JSON.
+    }
+
     // Premium gate
-    const isOwner =
-      lesson.createdBy.toString() === req.dbUser._id.toString();
+    // If createdBy is populated, use lesson.createdBy._id
+    // createdBy could be null if user was deleted
+    const ownerId = lesson.createdBy ? lesson.createdBy._id.toString() : null;
+    const isOwner = ownerId === req.dbUser._id.toString();
+
     if (lesson.accessLevel === 'premium' && !req.dbUser.isPremium && !isOwner) {
       return res.status(403).json({
         message: 'Premium lesson - Upgrade to view',
@@ -275,7 +306,7 @@ router.get('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
     const readingTime = getReadingTime(lesson.description);
 
     res.json({
-      ...lesson.toObject(),
+      ...lesson, // .lean() object
       readingTimeMinutes: readingTime,
       views: randomViews(),
     });
