@@ -1,133 +1,166 @@
-# Digital Life Lessons Server
+# Digital Life Lessons - Server
 
-A clean, modular Express.js backend for the Digital Life Lessons application.
+This repository contains the backend server for the **Digital Life Lessons** platform. It is a robust RESTful API built with **Express.js** and **MongoDB**, utilizing **Firebase** for authentication and **Stripe** for premium payment processing.
 
-## 📁 Project Structure
+## � Project Overview
 
-```
-digital-life-lessons-server/
-├── config/
-│   └── firebase.js          # Firebase Admin initialization
-├── middleware/
-│   └── auth.js              # Authentication middleware
-├── models/
-│   ├── User.js              # User schema
-│   ├── Lesson.js            # Lesson schema
-│   ├── Favorite.js          # Favorite schema
-│   ├── Comment.js           # Comment schema
-│   └── LessonReport.js      # Report schema
-├── routes/
-│   ├── users.js             # User routes
-│   ├── lessons.js           # Lesson CRUD & interactions
-│   ├── favorites.js         # Favorites management
-│   ├── dashboard.js         # Dashboard overview
-│   ├── admin.js             # Admin panel routes
-│   └── payment.js           # Stripe payment routes
-├── index.js                 # Main server file
-├── .env                     # Environment variables
-└── package.json
-```
+The Digital Life Lessons server manages the core logic for a platform where users can share, discover, and learn from life lessons. It handles user authentication, content management (lessons), social interactions (likes, favorites, comments), and premium subscriptions.
 
-## 🚀 API Endpoints
+## ✨ Key Features
 
-### **Authentication & Users**
-- `POST /api/users/sync` - Sync user data after login
-- `GET /api/users/me` - Get current user profile
+### 🔐 Authentication & Users
+- **Firebase Integration**: Secure user authentication verify via Firebase Admin SDK.
+- **User Sync**: seamless synchronization between Firebase Auth and MongoDB user profiles.
+- **Role-Based Access**: Distinction between standard `user` and `admin` roles.
 
-### **Lessons**
-- `POST /api/lessons` - Create a new lesson
-- `GET /api/lessons/public` - Get public lessons (with filters, search, pagination)
-- `GET /api/lessons/featured` - Get featured lessons
-- `GET /api/lessons/author/:userId` - Get lessons by author
-- `GET /api/lessons/my` - Get current user's lessons
-- `GET /api/lessons/favorites` - Get current user's favorite lessons
-- `GET /api/lessons/:id` - Get lesson details
-- `PATCH /api/lessons/:id` - Update lesson
-- `DELETE /api/lessons/:id` - Delete lesson
-- `POST /api/lessons/favorites/:lessonId` - Toggle favorite (Add/Remove)
-- `DELETE /api/lessons/favorites/:lessonId` - Remove favorite
-- `PATCH /api/lessons/:id/like` - Like/unlike lesson
-- `POST /api/lessons/:id/report` - Report lesson
-- `GET /api/lessons/:id/comments` - Get lesson comments
-- `POST /api/lessons/:id/comments` - Add comment
+### 📚 Lesson Management
+- **CRUD Operations**: Complete Create, Read, Update, Delete functionality for lessons.
+- **Advanced Filtering**: Filter public lessons by **Category**, **Emotional Tone**, and **Privacy**.
+- **Search**: Text-based search for lesson titles.
+- **Pagination**: Efficient data loading with pagination support.
+- **Access Control**:
+  - **Public/Private**: Users can keep lessons private or share them with the world.
+  - **Free/Premium**: Premium content gating for monetized lessons.
 
-### **Favorites (Legacy)**
-- `POST /api/favorites/:lessonId` - Toggle favorite
-- `GET /api/favorites/my` - Get user's favorites
+### ❤️ Social Interactions
+- **Likes**: Users can like and unlike lessons.
+- **Favorites**: Users can save lessons to their personal collection.
+- **Comments**: Community discussion on lessons.
+- **Reporting**: Safety mechanism for users to report inappropriate content.
 
-### **Dashboard**
-- `GET /api/dashboard/overview` - Get dashboard stats
+### 🛡️ Admin Dashboard
+- **Statistics**: Overview of total users, lessons, and reports.
+- **User Management**: View all users and update roles (promote/demote admins).
+- **Content Moderation**: View reported lessons and take action (delete).
+- **Featured Content**: Admins can mark lessons as "Featured" to highlight them.
 
-### **Admin**
-- `GET /api/admin/stats` - Get admin statistics (Total Users, Total Lessons, Reported Lessons)
-- `GET /api/admin/users` - Get all users
-- `PATCH /api/admin/users/:id/role` - Update user role
-- `GET /api/admin/lessons` - Get all lessons (with filters)
-- `PATCH /api/admin/lessons/:id/feature` - Toggle featured status
-- `DELETE /api/admin/lessons/:id` - Delete lesson
-- `GET /api/admin/reported-lessons` - Get reported lessons
-- `GET /api/admin/reported-lessons/:lessonId` - Get report details
+### 💳 Payments (Stripe)
+- **Premium Subscription**: One-time payment integration for lifetime premium access.
+- **Stripe Checkout**: Secure payment processing via Stripe hosted pages.
+- **Webhooks**: Automated handling of payment success events to update user status instantly.
+- **Payment History**: Users can view their past transaction history.
 
-### **Payment**
-- `POST /api/payment/create-checkout-session` - Create Stripe checkout
-- `POST /api/payment/verify-session` - Verify payment session status
-- `GET /api/payment/history` - Get user's payment history
-- `GET /api/payment/status` - Check premium status based on payments
-- `POST /api/payment/webhook` - Stripe webhook handler
+## 🛠️ Tech Stack
 
-## 🔧 Environment Variables
+- **Runtime**: Node.js
+- **Framework**: Express.js
+- **Database**: MongoDB (via Mongoose ODM)
+- **Authentication**: Firebase Admin SDK
+- **Payments**: Stripe API
+- **Security**: Helmet, CORS
+- **Logging**: Morgan
 
-```env
-PORT=5001
-MONGODB_URI=your_mongodb_connection_string
-MONGODB_DB_NAME=digital_life_lessons
-CLIENT_URL=http://localhost:5173
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-FIREBASE_PROJECT_ID=your_project_id
-FIREBASE_CLIENT_EMAIL=your_client_email
-FIREBASE_PRIVATE_KEY=your_private_key
-```
+## � API Documentation
 
-## 📦 Installation
+### 👤 Users (`/api/users`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/sync` | Sync/Create user record from Firebase token | ✅ |
+| `GET` | `/me` | Get current logged-in user details | ✅ |
 
-```bash
-npm install
-```
+### 📖 Lessons (`/api/lessons`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/` | Create a new lesson | ✅ |
+| `GET` | `/public` | Get all public lessons (Search, Filter, Paginate) | No |
+| `GET` | `/featured` | Get featured lessons | No |
+| `GET` | `/author/:userId` | Get public lessons by a specific author | No |
+| `GET` | `/my` | Get current user's lessons | ✅ |
+| `GET` | `/:id` | Get details of a specific lesson | ✅ |
+| `PATCH` | `/:id` | Update a lesson (Owner/Admin only) | ✅ |
+| `DELETE` | `/:id` | Delete a lesson (Owner/Admin only) | ✅ |
+| `PATCH` | `/:id/like` | Like or Unlike a lesson | ✅ |
+| `POST` | `/:id/report` | Report a lesson | ✅ |
+| `GET` | `/:id/comments` | Get comments for a lesson | No |
+| `POST` | `/:id/comments` | Add a comment to a lesson | ✅ |
 
-## ▶️ Running the Server
+### 🌟 Favorites (`/api/favorites`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/my` | Get current user's favorite lessons | ✅ |
+| `POST` | `/:lessonId` | Toggle favorite status for a lesson | ✅ |
 
-```bash
-# Development
-node index.js
+### 📊 Dashboard (`/api/dashboard`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/overview` | Get user stats (total lessons, favorites, recent activity) | ✅ |
 
-# Or with nodemon
-npm install -g nodemon
-nodemon index.js
-```
+### 🛡️ Admin (`/api/admin`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/stats` | Get platform-wide statistics | ✅ (Admin) |
+| `GET` | `/users` | List all users | ✅ (Admin) |
+| `PATCH` | `/users/:id/role` | Update user role (e.g., make admin) | ✅ (Admin) |
+| `GET` | `/lessons` | List all lessons (with filters) | ✅ (Admin) |
+| `PATCH` | `/lessons/:id/feature` | Toggle "Featured" status of a lesson | ✅ (Admin) |
+| `DELETE` | `/lessons/:id` | Delete any lesson | ✅ (Admin) |
+| `GET` | `/reported-lessons` | List aggregated reports | ✅ (Admin) |
+| `GET` | `/reported-lessons/:lessonId` | Get detailed reports for a specific lesson | ✅ (Admin) |
 
-## ✨ Features
+### 💳 Payment (`/api/payment`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/create-checkout-session` | Initialize Stripe Checkout session | ✅ |
+| `POST` | `/verify-session` | Verify payment status with Stripe | ✅ |
+| `GET` | `/history` | Get user's payment history | ✅ |
+| `GET` | `/status` | Check current premium status | ✅ |
+| `POST` | `/webhook` | Stripe webhook handler (Raw Body) | No |
 
-- **Modular Architecture**: Clean separation of concerns with dedicated folders
-- **Authentication**: Firebase Admin SDK integration
-- **Authorization**: Role-based access control (user/admin)
-- **Payment Integration**: Stripe checkout and webhooks
-- **Database**: MongoDB with Mongoose ODM
-- **Security**: Helmet, CORS, input validation
-- **Error Handling**: Centralized error handling
+## � Getting Started
 
-## 🔐 Middleware
+### Prerequisites
+- Node.js (v14 or higher)
+- MongoDB (Local or Atlas URI)
+- Firebase Project (Service Account)
+- Stripe Account
 
-- `verifyFirebaseToken` - Validates Firebase JWT tokens
-- `requireAuth` - Ensures user is authenticated
-- `requireAdmin` - Ensures user has admin role
+### Installation
 
-## 📊 Models
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd digital-life-lessons-server
+   ```
 
-All models use Mongoose schemas with timestamps and proper relationships:
-- **User**: Firebase UID, email, role, premium status, totalLikes
-- **Lesson**: Title, description, category, emotional tone, visibility
-- **Favorite**: User-Lesson relationship
-- **Comment**: User comments on lessons
-- **LessonReport**: User reports for inappropriate content
-- **Payment**: Payment transaction records (Stripe session, amount, status)
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Environment Setup**
+   Create a `.env` file in the root directory:
+   ```env
+   PORT=5001
+   MONGODB_URI=your_mongodb_connection_string
+   CLIENT_URL=http://localhost:5173
+   
+   # Firebase (Option 1: Service Account File)
+   # Place your digital-life-lessons-...json file in the root or config folder
+   # Code auto-detects specific filename in config/firebase.js
+   
+   # Firebase (Option 2: Environment Variables)
+   FIREBASE_PROJECT_ID=your_project_id
+   FIREBASE_CLIENT_EMAIL=your_client_email
+   FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
+   
+   # Stripe
+   STRIPE_SECRET_KEY=your_stripe_secret_key
+   STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+   ```
+
+4. **Run the server**
+   ```bash
+   # Development mode (with nodemon)
+   npm run dev
+
+   # Production mode
+   npm start
+   ```
+
+## 🤝 Contributing
+
+1. Fork the project
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
