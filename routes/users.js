@@ -3,7 +3,7 @@ const router = express.Router();
 const { verifyFirebaseToken, requireAuth } = require('../middleware/auth');
 const User = require('../models/User');
 
-// Sync user after login / register
+
 router.post('/sync', verifyFirebaseToken, async (req, res) => {
   try {
     const { name, photoURL } = req.body || {};
@@ -25,7 +25,7 @@ router.post('/sync', verifyFirebaseToken, async (req, res) => {
   }
 });
 
-// Get current user
+
 router.get('/me', verifyFirebaseToken, async (req, res) => {
   res.json(req.dbUser);
 });

@@ -7,7 +7,7 @@ const LessonReport = require('../models/LessonReport');
 const Favorite = require('../models/Favorite');
 const Comment = require('../models/Comment');
 
-// Admin stats
+
 router.get('/stats', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
     const today = new Date();
@@ -27,7 +27,7 @@ router.get('/stats', verifyFirebaseToken, requireAuth, requireAdmin, async (req,
       totalUsers,
       totalLessons, // Now includes all lessons
       todayLessons,
-      reportedLessons: totalReports, // Mapping to the requested key
+      reportedLessons: totalReports,
     });
   } catch (err) {
     console.error('❌ GET /api/admin/stats error:', err);
@@ -35,7 +35,7 @@ router.get('/stats', verifyFirebaseToken, requireAuth, requireAdmin, async (req,
   }
 });
 
-// Get all users
+
 router.get('/users', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
     const users = await User.find().sort({ createdAt: -1 });
@@ -46,7 +46,7 @@ router.get('/users', verifyFirebaseToken, requireAuth, requireAdmin, async (req,
   }
 });
 
-// Update user role
+
 router.patch('/users/:id/role', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
     const { role } = req.body;
@@ -62,7 +62,7 @@ router.patch('/users/:id/role', verifyFirebaseToken, requireAuth, requireAdmin, 
   }
 });
 
-// Get all lessons
+
 router.get('/lessons', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
     const { category, visibility, flagged } = req.query;
@@ -88,7 +88,7 @@ router.get('/lessons', verifyFirebaseToken, requireAuth, requireAdmin, async (re
   }
 });
 
-// Toggle lesson featured status
+
 router.patch('/lessons/:id/feature', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
     const { isFeatured } = req.body;
@@ -104,7 +104,7 @@ router.patch('/lessons/:id/feature', verifyFirebaseToken, requireAuth, requireAd
   }
 });
 
-// Delete lesson (admin)
+
 router.delete('/lessons/:id', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
@@ -124,7 +124,7 @@ router.delete('/lessons/:id', verifyFirebaseToken, requireAuth, requireAdmin, as
   }
 });
 
-// Get reported lessons
+
 router.get('/reported-lessons', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
     const reports = await LessonReport.aggregate([
@@ -152,7 +152,7 @@ router.get('/reported-lessons', verifyFirebaseToken, requireAuth, requireAdmin, 
   }
 });
 
-// Get report details for a lesson
+
 router.get('/reported-lessons/:lessonId', verifyFirebaseToken, requireAuth, requireAdmin, async (req, res) => {
   try {
     const reports = await LessonReport.find({

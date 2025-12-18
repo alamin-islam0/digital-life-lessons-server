@@ -5,7 +5,7 @@ const { verifyFirebaseToken, requireAuth } = require('../middleware/auth');
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
-// Create checkout session
+
 router.post('/create-checkout-session', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     if (req.dbUser.isPremium) {
@@ -50,7 +50,7 @@ router.post('/create-checkout-session', verifyFirebaseToken, requireAuth, async 
   }
 });
 
-// Verify session after payment
+
 router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const { sessionId } = req.body;
@@ -62,7 +62,7 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
     const Payment = require('../models/Payment');
     const User = require('../models/User');
 
-    // 1. Retrieve the session from Stripe
+
     let session;
     try {
       session = await stripe.checkout.sessions.retrieve(sessionId);
@@ -75,7 +75,7 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
       return res.status(400).json({ message: 'Session not found' });
     }
 
-    // 2. Security Check: payment_status
+
     if (session.payment_status !== 'paid') {
       return res.status(400).json({ 
         message: 'Payment not completed', 
@@ -83,8 +83,7 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
       });
     }
 
-    // 3. Duplicate Handling: Check by payment_intent (transactionId)
-    // Most reliable way to detect if webhook already processed it
+
     const existingPayment = await Payment.findOne({
       $or: [
         { stripeSessionId: session.id },
@@ -107,7 +106,7 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
       });
     }
 
-    // 4. User Update: Find by session email
+
     const customerEmail = session.customer_details?.email || session.customer_email;
     let userToUpdate = await User.findOne({ email: customerEmail });
     
@@ -124,7 +123,7 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
         return res.status(404).json({ message: 'User not found to update' });
     }
 
-    // 5. Payment Record: Save transaction details
+
     const newPayment = await Payment.create({
       user: userToUpdate._id,
       firebaseUid: userToUpdate.firebaseUid,
@@ -143,7 +142,7 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
       },
     });
 
-    // 6. Response
+
     res.json({
       success: true,
       message: 'Payment verified successfully',
@@ -163,7 +162,7 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
       
       try {
         const Payment = require('../models/Payment');
-        // Retrieve the existing payment that caused the conflict
+
         const existingPayment = await Payment.findOne({ stripeSessionId: req.body.sessionId });
         
         if (existingPayment) {
@@ -190,7 +189,7 @@ router.post('/verify-session', verifyFirebaseToken, requireAuth, async (req, res
   }
 });
 
-// Get user's payment history
+
 router.get('/history', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const Payment = require('../models/Payment');
@@ -198,7 +197,7 @@ router.get('/history', verifyFirebaseToken, requireAuth, async (req, res) => {
       user: req.dbUser._id 
     })
     .sort({ createdAt: -1 })
-    .select('-metadata'); // Exclude metadata for cleaner response
+    .select('-metadata');
 
     res.json(payments);
   } catch (err) {
@@ -207,22 +206,22 @@ router.get('/history', verifyFirebaseToken, requireAuth, async (req, res) => {
   }
 });
 
-// Check premium status based on payments
+
 router.get('/status', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const Payment = require('../models/Payment');
     const User = require('../models/User');
     
-    // Get user from database
+
     const user = await User.findOne({ firebaseUid: req.dbUser.firebaseUid });
     
-    // Check if user has any completed payments
+
     const completedPayments = await Payment.countDocuments({
       user: req.dbUser._id,
       status: 'completed',
     });
 
-    // Get latest payment
+
     const latestPayment = await Payment.findOne({
       user: req.dbUser._id,
       status: 'completed',

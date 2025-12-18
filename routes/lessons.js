@@ -7,7 +7,7 @@ const Comment = require('../models/Comment');
 const LessonReport = require('../models/LessonReport');
 const User = require('../models/User');
 
-// Helper functions
+
 const getReadingTime = (text = '') => {
   const words = text.trim().split(/\s+/).length || 0;
   return Math.max(1, Math.ceil(words / 200)); // 200 wpm
@@ -15,7 +15,7 @@ const getReadingTime = (text = '') => {
 
 const randomViews = () => Math.floor(Math.random() * 10000);
 
-// Create lesson
+
 router.post('/', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const {
@@ -59,7 +59,7 @@ router.post('/', verifyFirebaseToken, requireAuth, async (req, res) => {
   }
 });
 
-// Public lessons listing with filter + search + sort + pagination
+
 router.get('/public', async (req, res) => {
   try {
     const {
@@ -112,7 +112,7 @@ router.get('/public', async (req, res) => {
   }
 });
 
-// Featured lessons
+
 router.get('/featured', async (req, res) => {
   try {
     const lessons = await Lesson.find({
@@ -129,12 +129,12 @@ router.get('/featured', async (req, res) => {
   }
 });
 
-// Lessons by author
+
 router.get('/author/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Validate userId
+    
     if (!userId || userId === 'undefined' || userId === 'null') {
       return res.status(400).json({ message: 'Invalid User ID provided' });
     }
@@ -146,7 +146,7 @@ router.get('/author/:userId', async (req, res) => {
 
     res.json(lessons);
   } catch (err) {
-    // Handle invalid ObjectId cast error
+    
     if (err.name === 'CastError') {
       return res.status(400).json({ message: 'Invalid User ID format' });
     }
@@ -155,7 +155,7 @@ router.get('/author/:userId', async (req, res) => {
   }
 });
 
-// Get my lessons
+
 router.get('/my', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const lessons = await Lesson.find({ createdBy: req.dbUser._id }).sort({
@@ -168,7 +168,7 @@ router.get('/my', verifyFirebaseToken, requireAuth, async (req, res) => {
   }
 });
 
-// Get user's favorites
+
 router.get('/favorites', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const { category, emotionalTone } = req.query;
@@ -193,7 +193,7 @@ router.get('/favorites', verifyFirebaseToken, requireAuth, async (req, res) => {
   }
 });
 
-// Toggle favorite
+
 router.post('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const lessonId = req.params.lessonId;
@@ -205,7 +205,7 @@ router.post('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (req
     });
 
     if (existing) {
-      // Remove favorite
+      
       await Favorite.deleteOne({ _id: existing._id });
       await Lesson.findByIdAndUpdate(lessonId, {
         $inc: { favoritesCount: -1 },
@@ -216,7 +216,7 @@ router.post('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (req
 
       return res.json({ favorited: false });
     } else {
-      // Add favorite
+      
       await Favorite.create({ user: userId, lesson: lessonId });
       await Lesson.findByIdAndUpdate(lessonId, {
         $inc: { favoritesCount: 1 },
@@ -234,7 +234,7 @@ router.post('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (req
   }
 });
 
-// Delete favorite (explicit removal)
+
 router.delete('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const lessonId = req.params.lessonId;
@@ -264,7 +264,7 @@ router.delete('/favorites/:lessonId', verifyFirebaseToken, requireAuth, async (r
   }
 });
 
-// Lesson details
+
 router.get('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id)
@@ -275,24 +275,14 @@ router.get('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
       return res.status(404).json({ message: 'Lesson not found' });
     }
 
-    // Prepare creator object (map createdBy to creator to match frontend expectation)
-    // and ensure we handle the case where createdBy might be null (deleted user)
     if (lesson.createdBy) {
       const totalLessons = await Lesson.countDocuments({ createdBy: lesson.createdBy._id });
       lesson.creator = {
         ...lesson.createdBy,
         totalLessons
       };
-      // Keep createdBy consistent or just rely on creator. 
-      // The user asked to "populate the creator field". 
-      // Since schema is createdBy, we keep createdBy populated as well or lets just overwrite consistent with the request "replaces the simple User ID".
-      // But purely replacing might break other things if they expect 'createdBy'. 
-      // We will provide 'creator' alias as per request JSON.
     }
 
-    // Premium gate
-    // If createdBy is populated, use lesson.createdBy._id
-    // createdBy could be null if user was deleted
     const ownerId = lesson.createdBy ? lesson.createdBy._id.toString() : null;
     const isOwner = ownerId === req.dbUser._id.toString();
 
@@ -306,7 +296,7 @@ router.get('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
     const readingTime = getReadingTime(lesson.description);
 
     res.json({
-      ...lesson, // .lean() object
+      ...lesson,
       readingTimeMinutes: readingTime,
       views: randomViews(),
     });
@@ -316,7 +306,7 @@ router.get('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
   }
 });
 
-// Update lesson
+
 router.patch('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
@@ -363,7 +353,7 @@ router.patch('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
   }
 });
 
-// Delete lesson
+
 router.delete('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const lesson = await Lesson.findById(req.params.id);
@@ -395,7 +385,7 @@ router.delete('/:id', verifyFirebaseToken, requireAuth, async (req, res) => {
   }
 });
 
-// Like / Unlike lesson
+
 router.patch('/:id/like', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -409,14 +399,13 @@ router.patch('/:id/like', verifyFirebaseToken, requireAuth, async (req, res) => 
     const isLiked = lesson.likes.some(id => id.toString() === userId.toString());
 
     if (isLiked) {
-      // User is UN-LIKING the lesson
-      // 1. Remove user from lesson likes
+
       await Lesson.findByIdAndUpdate(id, { 
         $pull: { likes: userId },
         $inc: { likesCount: -1 }
       });
       
-      // 2. Decrement totalLikes for the CURRENT USER (liker)
+
       await User.findByIdAndUpdate(userId, { 
         $inc: { totalLikes: -1 } 
       });
@@ -428,14 +417,13 @@ router.patch('/:id/like', verifyFirebaseToken, requireAuth, async (req, res) => 
         likesCount: Math.max(0, lesson.likesCount - 1) 
       });
     } else {
-      // User is LIKING the lesson
-      // 1. Add user to lesson likes
+
       await Lesson.findByIdAndUpdate(id, { 
         $addToSet: { likes: userId },
         $inc: { likesCount: 1 }
       });
       
-      // 2. Increment totalLikes for the CURRENT USER (liker)
+
       await User.findByIdAndUpdate(userId, { 
         $inc: { totalLikes: 1 } 
       });
@@ -453,7 +441,7 @@ router.patch('/:id/like', verifyFirebaseToken, requireAuth, async (req, res) => 
   }
 });
 
-// Report lesson
+
 router.post('/:id/report', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const { reason, message } = req.body;
@@ -476,7 +464,7 @@ router.post('/:id/report', verifyFirebaseToken, requireAuth, async (req, res) =>
   }
 });
 
-// Get comments
+
 router.get('/:id/comments', async (req, res) => {
   try {
     const comments = await Comment.find({ lesson: req.params.id })
@@ -490,7 +478,7 @@ router.get('/:id/comments', async (req, res) => {
   }
 });
 
-// Add comment
+
 router.post('/:id/comments', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const { text } = req.body;

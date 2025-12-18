@@ -4,7 +4,7 @@ const { verifyFirebaseToken, requireAuth } = require('../middleware/auth');
 const Lesson = require('../models/Lesson');
 const Favorite = require('../models/Favorite');
 
-// Dashboard overview
+
 router.get('/overview', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const [totalLessons, totalFavorites, recentLessons] = await Promise.all([

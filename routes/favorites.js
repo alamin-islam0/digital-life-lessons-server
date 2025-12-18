@@ -5,7 +5,7 @@ const Favorite = require('../models/Favorite');
 const Lesson = require('../models/Lesson');
 const User = require('../models/User');
 
-// Toggle favorite
+
 router.post('/:lessonId', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const lessonId = req.params.lessonId;
@@ -17,7 +17,7 @@ router.post('/:lessonId', verifyFirebaseToken, requireAuth, async (req, res) => 
     });
 
     if (existing) {
-      // Remove favorite
+
       await Favorite.deleteOne({ _id: existing._id });
       await Lesson.findByIdAndUpdate(lessonId, {
         $inc: { favoritesCount: -1 },
@@ -44,7 +44,7 @@ router.post('/:lessonId', verifyFirebaseToken, requireAuth, async (req, res) => 
   }
 });
 
-// Get my favorites
+
 router.get('/my', verifyFirebaseToken, requireAuth, async (req, res) => {
   try {
     const { category, emotionalTone } = req.query;

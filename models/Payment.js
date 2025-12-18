@@ -23,7 +23,7 @@ const paymentSchema = new Schema(
   { timestamps: true }
 );
 
-// Index for faster queries
+
 paymentSchema.index({ user: 1, status: 1 });
 paymentSchema.index({ firebaseUid: 1 });
 paymentSchema.index({ stripeSessionId: 1 });

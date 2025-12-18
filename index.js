@@ -6,13 +6,13 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 
-// Config
+
 const { initializeFirebase } = require('./config/firebase');
 
-// Initialize Firebase
+
 initializeFirebase();
 
-// Environment variables
+
 const {
   PORT = 5001,
   MONGODB_URI,
@@ -20,7 +20,7 @@ const {
   STRIPE_SECRET_KEY,
 } = process.env;
 
-// Validate required environment variables
+
 if (!MONGODB_URI) {
   console.warn('⚠️ MONGODB_URI is not set in .env');
 }
@@ -31,10 +31,10 @@ if (!CLIENT_URL) {
   console.warn('⚠️ CLIENT_URL is not set in .env');
 }
 
-// Initialize Express app
+
 const app = express();
 
-// Middleware
+
 app.use(
   cors({
     origin: CLIENT_URL || 'http://localhost:5173',
@@ -69,7 +69,7 @@ app.post(
       return res.status(400).send(`Webhook Error: ${err.message}`);
     }
 
-    // Handle the checkout.session.completed event
+    
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const firebaseUid = session.metadata?.firebaseUid;
@@ -79,11 +79,11 @@ app.post(
         const user = await User.findOne({ firebaseUid });
         
         if (user) {
-          // Update user premium status
+          
           user.isPremium = true;
           await user.save();
           
-          // Save payment record
+          
           await Payment.create({
             user: user._id,
             firebaseUid: user.firebaseUid,
@@ -113,7 +113,7 @@ app.post(
               name: session.metadata?.name || 'Premium User',
             });
             
-            // Save payment record for new user
+            
             await Payment.create({
               user: newUser._id,
               firebaseUid: newUser.firebaseUid,
@@ -143,10 +143,10 @@ app.post(
   }
 );
 
-// JSON body parser for all other routes
+
 app.use(express.json({ limit: '10mb' }));
 
-// Routes
+
 const userRoutes = require('./routes/users');
 const lessonRoutes = require('./routes/lessons');
 const favoriteRoutes = require('./routes/favorites');
@@ -161,7 +161,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/payment', paymentRoutes);
 
-// Health check
+
 app.get('/', (req, res) => {
   res.json({
     status: 'OK',
@@ -169,21 +169,21 @@ app.get('/', (req, res) => {
   });
 });
 
-// Favicon
+
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
-// 404 handler
+
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Global error handler
+
 app.use((err, req, res, next) => {
   console.error('❌ Global error handler:', err);
   res.status(500).json({ message: 'Internal Server Error' });
 });
 
-// Database connection and server start
+
 mongoose
   .connect(MONGODB_URI, {
     dbName: process.env.MONGODB_DB_NAME || 'digital_life_lessons',
